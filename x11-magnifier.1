@@ -3,21 +3,18 @@
 x11-magnifier \- full-screen magnifier for X11
 .SH SYNOPSIS
 .B x11-magnifier
-[\fB\-c\fR \fIFILE\fR] [\fB\-m\fR \fIMODS\fR] [\fB\-k\fR \fIKEY\fR] [\fB\-s\fR \fISTEP\fR] [\fB\-M\fR \fIMAX\fR] [\fB\-e\fR \fIPX\fR] [\fB\-r\fR \fIMS\fR] [\fB\-p\fR] [\fB\-n\fR] [\fB\-i\fR]
+[\fB\-c\fR \fIFILE\fR] [\fB\-m\fR \fIMODS\fR] [\fB\-s\fR \fISTEP\fR] [\fB\-M\fR \fIMAX\fR] [\fB\-e\fR \fIPX\fR] [\fB\-r\fR \fIMS\fR] [\fB\-p\fR] [\fB\-n\fR] [\fB\-i\fR]
 .SH DESCRIPTION
 Runs in the background and grabs modifier+scroll on the X root window.
 Scrolling up zooms the whole screen in around the pointer; pushing the pointer
 against a screen edge pans the view; scrolling down zooms out and, at 1.0x,
-removes the magnified view. The exit key (Esc by default) or a mouse click also leaves the zoomed view.
+removes the magnified view. A mouse click also leaves the zoomed view.
 The view live-updates: windows are redirected with the Composite extension and
 repainted on XDamage events.
 .SH OPTIONS
 .TP
 .BI \-c " FILE"
 Config file. Default ~/.config/x11-magnifier/config. Flags override it.
-.TP
-.BI \-k " KEY"
-Key that leaves the zoomed view, an X keysym name. Default Escape.
 .TP
 .BI \-m " MODS"
 Modifiers joined by +: ctrl, shift, alt, super. Default ctrl+shift.
@@ -44,7 +41,7 @@ Nearest-neighbour scaling instead of bilinear.
 Invert scroll direction (natural scrolling).
 .SH CONFIGURATION
 The config file has one "key = value" per line; # starts a comment. Keys:
-modifiers, exit_key, step, max_zoom, edge_margin, refresh_ms, live, nearest,
+modifiers, step, max_zoom, edge_margin, refresh_ms, live, nearest,
 invert. An annotated example is installed in /usr/share/doc/x11-magnifier/examples/.
 .SH NOTES
 The chosen modifier+scroll combination is grabbed system-wide while the

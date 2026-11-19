@@ -5,7 +5,8 @@ Full-screen magnifier for X11. Ctrl+Shift + two-finger scroll.
 - **Scroll up** zooms in around the pointer (content under the pointer stays put).
 - **Push the pointer to a screen edge** to pan the view that way.
 - **Scroll down** zooms out; at 1.0x the overlay disappears (the daemon keeps waiting).
-- **Esc** (configurable) or a **mouse click** also leaves the zoomed view.
+- A **mouse click** also leaves the zoomed view (there is deliberately no keyboard
+  exit, so every key still reaches the app you are typing in).
 
 The zoomed view is live: windows are redirected with the Composite extension and
 repainted over the initial snapshot when XDamage reports changes (at most every
@@ -32,13 +33,12 @@ No xbindkeys or icewm key config is needed: x11-magnifier grabs the scroll butto
 
 Everything below can also live in `~/.config/x11-magnifier/config` (`key = value` lines;
 see `x11-magnifier.conf.example`, installed under `/usr/share/doc/x11-magnifier/examples/`).
-Keys: `modifiers`, `exit_key`, `step`, `max_zoom`, `edge_margin`, `refresh_ms`,
+Keys: `modifiers`, `step`, `max_zoom`, `edge_margin`, `refresh_ms`,
 `live`, `nearest`, `invert`. Flags override the file; `-c FILE` picks another file.
 
 ## Options
 
     -m MODS   ctrl+shift (default), super, ctrl+alt, ...
-    -k KEY    exit key, an X keysym name (default Escape)
     -c FILE   config file
     -s STEP   zoom factor per scroll tick (default 1.08)
     -M MAX    max zoom (default 12)

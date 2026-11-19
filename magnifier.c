@@ -6,7 +6,7 @@
  * the root window. The first "zoom in" snapshots the screen and shows a scaled
  * view of it in a full-screen override-redirect window. Zooming keeps the
  * content under the pointer fixed; pushing the pointer against a screen edge
- * pans the view. Scrolling down to 1.0x (or Esc, or a click) drops the overlay.
+ * pans the view. Scrolling down to 1.0x (or a click) drops the overlay.
  *
  * Live refresh: while zoomed, the root's children are redirected with the
  * Composite extension (automatic mode, so no compositor is needed and it can
@@ -18,7 +18,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-#include <X11/keysym.h>
 #include <X11/extensions/Xrender.h>
 #include <X11/extensions/Xcomposite.h>
 #include <X11/extensions/Xdamage.h>
@@ -58,8 +57,6 @@ static double last_refresh;
 #define MAXTRACK 256
 static struct { Window w; Damage d; int seen; } track[MAXTRACK];
 static int ntrack;
-static KeyCode esc_key;          /* key that leaves the zoomed view */
-static KeySym exit_keysym = XK_Escape;
 
 /* ---- zoom state ---- */
 static int zoomed;
@@ -172,13 +169,6 @@ static void start_zoom(void) {
                        CopyFromParent, CWOverrideRedirect | CWBackPixmap | CWEventMask, &wa);
     XMapRaised(dpy, ov);
 
-    /* Esc exits, but only while zoomed so we don't steal it otherwise. */
-    grab_failed = 0;
-    XGrabKey(dpy, esc_key, AnyModifier, root, False, GrabModeAsync, GrabModeAsync);
-    XSync(dpy, False);
-    if (grab_failed)
-        fprintf(stderr, "x11-magnifier: exit key is grabbed by another client; "
-                        "use a click or scroll down instead (or set exit_key)\n");
     zoomed = 1;
 
     if (live) {
@@ -195,7 +185,6 @@ static void start_zoom(void) {
 
 static void stop_zoom(void) {
     if (!zoomed) return;
-    XUngrabKey(dpy, esc_key, AnyModifier, root);
     if (live_active) {
         for (int i = 0; i < ntrack; i++) XDamageDestroy(dpy, track[i].d);
         ntrack = 0;
@@ -271,9 +260,6 @@ static void handle(XEvent *e) {
         }
         break;
     }
-    case KeyPress:
-        if (zoomed && e->xkey.keycode == esc_key) stop_zoom();
-        break;
     case Expose:
         if (zoomed && e->xexpose.count == 0) render();
         break;
@@ -318,12 +304,6 @@ static int parse_bool(const char *v, int *out) {
 /* One setting, from the config file or a command-line flag. 0 ok, -1 bad. */
 static int apply_setting(const char *k, const char *v) {
     if (!strcmp(k, "modifiers")) return parse_mods(v, &want_mods);
-    if (!strcmp(k, "exit_key")) {
-        KeySym ks = XStringToKeysym(v);
-        if (ks == NoSymbol) return -1;
-        exit_keysym = ks;
-        return 0;
-    }
     if (!strcmp(k, "step")) { double d = atof(v); if (d <= 1.0) return -1; step = d; return 0; }
     if (!strcmp(k, "max_zoom")) { double d = atof(v); if (d <= 1.0) return -1; max_zoom = d; return 0; }
     if (!strcmp(k, "edge_margin")) { edge_margin = atoi(v); return 0; }
@@ -372,7 +352,6 @@ static void usage(const char *p) {
     fprintf(stderr,
         "usage: %s [options]\n"
         "  -m MODS   modifier(s) for scroll, e.g. ctrl+shift (default), super, ctrl+alt\n"
-        "  -k KEY    key that leaves the zoomed view, an X keysym name (default Escape)\n"
         "  -c FILE   config file (default ~/.config/x11-magnifier/config); flags override it\n"
         "  -s STEP   zoom factor per scroll tick (default %.2f)\n"
         "  -M MAX    maximum zoom (default %.0f)\n"
@@ -382,8 +361,8 @@ static void usage(const char *p) {
         "  -n        nearest-neighbour scaling (crisp pixels) instead of bilinear\n"
         "  -i        invert scroll direction (for natural scrolling)\n"
         "Scroll up = zoom in, down = zoom out; at 1.0x the overlay goes away.\n"
-        "The exit key or a mouse click also leaves the zoomed view.\n"
-        "Config file keys: modifiers, exit_key, step, max_zoom, edge_margin,\n"
+        "A mouse click also leaves the zoomed view.\n"
+        "Config file keys: modifiers, step, max_zoom, edge_margin,\n"
         "refresh_ms, live, nearest, invert (see the man page).\n",
         p, step, max_zoom, edge_margin);
 }
@@ -405,11 +384,10 @@ int main(int argc, char **argv) {
     }
 
     int c;
-    while ((c = getopt(argc, argv, "m:k:c:s:M:e:r:pnih")) != -1) {
+    while ((c = getopt(argc, argv, "m:c:s:M:e:r:pnih")) != -1) {
         int bad = 0;
         switch (c) {
         case 'm': bad = apply_setting("modifiers", optarg); break;
-        case 'k': bad = apply_setting("exit_key", optarg); break;
         case 'c': break; /* handled above */
         case 's': bad = apply_setting("step", optarg); break;
         case 'M': bad = apply_setting("max_zoom", optarg); break;
@@ -433,8 +411,6 @@ int main(int argc, char **argv) {
     vis = DefaultVisual(dpy, scr);
     pfmt = XRenderFindVisualFormat(dpy, vis);
     if (!pfmt) { fprintf(stderr, "x11-magnifier: XRender not available\n"); return 1; }
-    esc_key = XKeysymToKeycode(dpy, exit_keysym);
-    if (!esc_key) { fprintf(stderr, "x11-magnifier: exit key has no keycode on this keyboard\n"); return 1; }
     if (live) {
         int ev, er, cmaj, cmin;
         if (!XCompositeQueryExtension(dpy, &ev, &er) ||

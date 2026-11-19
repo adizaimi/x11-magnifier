@@ -4,9 +4,6 @@
 # Modifiers held with two-finger scroll: ctrl, shift, alt, super joined by '+'.
 modifiers = ctrl+shift
 
-# Key that leaves the zoomed view (an X keysym name: Escape, q, F12, ...).
-exit_key = Escape
-
 # Zoom factor per scroll tick, and the maximum zoom.
 step = 1.08
 max_zoom = 12
