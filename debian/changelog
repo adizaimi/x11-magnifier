@@ -1,10 +1,16 @@
+x11-magnifier (0.3.1) unstable; urgency=medium
+
+  * Re-read the screen when windows close or move or the workspace changes,
+    so nothing stale lingers in the zoomed view.
+  * New workspace_switch setting (-w): refresh (default) or exit.
+
+ -- Adi Zaimi <adizaimi@yahoo.com>  Thu, 19 Nov 2026 18:02:20 -0500
+
 x11-magnifier (0.3.0) unstable; urgency=medium
 
   * Initial release: static zoom via Ctrl+Shift+scroll, edge panning.
   * Live refresh of the zoomed view (Composite+Damage); -p static, -r rate.
   * Config file (-c).
-  * Re-read the screen when windows close/move or the workspace changes
-    (workspace_switch = refresh|exit).
   * Dual-licensed MIT or Apache-2.0.
 
  -- Adi Zaimi <adizaimi@yahoo.com>  Thu, 19 Nov 2026 15:27:31 -0500
