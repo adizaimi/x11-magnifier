@@ -3,7 +3,7 @@
 x11-magnifier \- full-screen magnifier for X11
 .SH SYNOPSIS
 .B x11-magnifier
-[\fB\-c\fR \fIFILE\fR] [\fB\-m\fR \fIMODS\fR] [\fB\-s\fR \fISTEP\fR] [\fB\-M\fR \fIMAX\fR] [\fB\-e\fR \fIPX\fR] [\fB\-r\fR \fIMS\fR] [\fB\-p\fR] [\fB\-n\fR] [\fB\-i\fR]
+[\fB\-c\fR \fIFILE\fR] [\fB\-m\fR \fIMODS\fR] [\fB\-w\fR \fIMODE\fR] [\fB\-s\fR \fISTEP\fR] [\fB\-M\fR \fIMAX\fR] [\fB\-e\fR \fIPX\fR] [\fB\-r\fR \fIMS\fR] [\fB\-p\fR] [\fB\-n\fR] [\fB\-i\fR]
 .SH DESCRIPTION
 Runs in the background and grabs modifier+scroll on the X root window.
 Scrolling up zooms the whole screen in around the pointer; pushing the pointer
@@ -18,6 +18,10 @@ Config file. Default ~/.config/x11-magnifier/config. Flags override it.
 .TP
 .BI \-m " MODS"
 Modifiers joined by +: ctrl, shift, alt, super. Default ctrl+shift.
+.TP
+.BI \-w " MODE"
+What to do when the workspace changes: \fBrefresh\fR (default) re-reads the
+screen, \fBexit\fR leaves the zoomed view.
 .TP
 .BI \-s " STEP"
 Zoom factor per scroll tick. Default 1.08.
@@ -41,7 +45,7 @@ Nearest-neighbour scaling instead of bilinear.
 Invert scroll direction (natural scrolling).
 .SH CONFIGURATION
 The config file has one "key = value" per line; # starts a comment. Keys:
-modifiers, step, max_zoom, edge_margin, refresh_ms, live, nearest,
+modifiers, workspace_switch, step, max_zoom, edge_margin, refresh_ms, live, nearest,
 invert. An annotated example is installed in /usr/share/doc/x11-magnifier/examples/.
 .SH NOTES
 The chosen modifier+scroll combination is grabbed system-wide while the

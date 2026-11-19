@@ -41,6 +41,7 @@ static int edge_margin = 40;    /* px from screen edge where panning starts */
 static double pan_speed = 1100; /* screen px/second at the very edge */
 static int live = 1;            /* live refresh via Composite+Damage */
 static double refresh_s = 0.2;  /* minimum seconds between refreshes */
+static int ws_exit = 0;         /* workspace switch: 0 = refresh view, 1 = leave zoom */
 
 /* ---- X state ---- */
 static Display *dpy;
@@ -57,6 +58,16 @@ static double last_refresh;
 #define MAXTRACK 256
 static struct { Window w; Damage d; int seen; } track[MAXTRACK];
 static int ntrack;
+
+/* Window layout at the previous refresh, to notice windows that vanished or moved. */
+struct geom { Window w; int x, y, gw, gh; };
+static struct geom prev_g[MAXTRACK], cur_g[MAXTRACK];
+static int nprev, ncur;
+
+#define RESNAP_DELAY 0.25 /* quiet time before re-snapshotting the base */
+static Atom net_cur_desk;
+static int resnap_pending;
+static double resnap_at;
 
 /* ---- zoom state ---- */
 static int zoomed;
@@ -82,7 +93,7 @@ static void clamp_origin(void) {
     oy = clampd(oy, 0, H - H / z);
 }
 
-static void refresh_snap(void);
+static void refresh_snap(int allow_resnap);
 
 static void render(void) {
     XTransform t = {{
@@ -111,10 +122,11 @@ static void track_window(Window w, int *found) {
 }
 
 /* Rebuild snap = base + current contents of every viewable top-level window. */
-static void refresh_snap(void) {
+static void refresh_snap(int allow_resnap) {
     Window rr, pr, *kids = NULL;
     unsigned int n = 0;
     for (int i = 0; i < ntrack; i++) track[i].seen = 0;
+    ncur = 0;
     XCopyArea(dpy, base, snap, gc, 0, 0, W, H, 0, 0);
     if (XQueryTree(dpy, root, &rr, &pr, &kids, &n)) {
         for (unsigned i = 0; i < n; i++) { /* bottom-to-top stacking order */
@@ -122,6 +134,8 @@ static void refresh_snap(void) {
             XWindowAttributes a;
             if (w == ov || !XGetWindowAttributes(dpy, w, &a)) continue;
             if (a.class != InputOutput || a.map_state != IsViewable) continue;
+            if (ncur < MAXTRACK)
+                cur_g[ncur++] = (struct geom){w, a.x, a.y, a.width, a.height};
             int found = 0;
             track_window(w, &found);
             XRenderPictFormat *f = XRenderFindVisualFormat(dpy, a.visual);
@@ -140,8 +154,37 @@ static void refresh_snap(void) {
         if (!track[i].seen) { XDamageDestroy(dpy, track[i].d); track[i] = track[--ntrack]; }
         else i++;
     }
+    /* A window that disappeared or moved leaves stale pixels in base. */
+    int stale = 0;
+    for (int i = 0; i < nprev && !stale; i++) {
+        int j = 0;
+        while (j < ncur && cur_g[j].w != prev_g[i].w) j++;
+        if (j == ncur || cur_g[j].x != prev_g[i].x || cur_g[j].y != prev_g[i].y ||
+            cur_g[j].gw != prev_g[i].gw || cur_g[j].gh != prev_g[i].gh)
+            stale = 1;
+    }
+    memcpy(prev_g, cur_g, ncur * sizeof cur_g[0]);
+    nprev = ncur;
+    if (stale && allow_resnap) { resnap_pending = 1; resnap_at = now() + RESNAP_DELAY; }
     last_refresh = now();
     dirty = 0;
+}
+
+/*
+ * Re-take the base snapshot. Windows keep their contents offscreen while
+ * redirected, so hiding the overlay briefly reveals the true current screen
+ * without any client having to repaint. The server is grabbed so the
+ * hide/copy/show sequence is not interleaved with anything else.
+ */
+static void resnap_base(void) {
+    resnap_pending = 0;
+    XGrabServer(dpy);
+    XUnmapWindow(dpy, ov);
+    XCopyArea(dpy, root, base, gc, 0, 0, W, H, 0, 0);
+    XMapRaised(dpy, ov);
+    XUngrabServer(dpy);
+    refresh_snap(0);
+    render();
 }
 
 static void start_zoom(void) {
@@ -171,15 +214,18 @@ static void start_zoom(void) {
 
     zoomed = 1;
 
+    XWindowAttributes ra;
+    XGetWindowAttributes(dpy, root, &ra);
+    XSelectInput(dpy, root, ra.your_event_mask | PropertyChangeMask |
+                            (live ? SubstructureNotifyMask : 0));
+    resnap_pending = 0;
     if (live) {
         XCompositeRedirectSubwindows(dpy, root, CompositeRedirectAutomatic);
-        XWindowAttributes ra;
-        XGetWindowAttributes(dpy, root, &ra);
-        XSelectInput(dpy, root, ra.your_event_mask | SubstructureNotifyMask);
         live_active = 1;
         dirty = 0;
         last_refresh = 0;
-        refresh_snap(); /* also starts damage tracking */
+        nprev = 0;
+        refresh_snap(0); /* also starts damage tracking */
     }
 }
 
@@ -189,11 +235,12 @@ static void stop_zoom(void) {
         for (int i = 0; i < ntrack; i++) XDamageDestroy(dpy, track[i].d);
         ntrack = 0;
         XCompositeUnredirectSubwindows(dpy, root, CompositeRedirectAutomatic);
-        XWindowAttributes ra;
-        XGetWindowAttributes(dpy, root, &ra);
-        XSelectInput(dpy, root, ra.your_event_mask & ~SubstructureNotifyMask);
         live_active = 0;
     }
+    XWindowAttributes ra;
+    XGetWindowAttributes(dpy, root, &ra);
+    XSelectInput(dpy, root, ra.your_event_mask & ~(PropertyChangeMask | SubstructureNotifyMask));
+    resnap_pending = 0;
     XUnmapWindow(dpy, ov);
     XFreeGC(dpy, gc);
     XDestroyWindow(dpy, ov);
@@ -263,6 +310,12 @@ static void handle(XEvent *e) {
     case Expose:
         if (zoomed && e->xexpose.count == 0) render();
         break;
+    case PropertyNotify:
+        if (zoomed && e->xproperty.atom == net_cur_desk) {
+            if (ws_exit) stop_zoom();
+            else if (live_active) { resnap_pending = 1; resnap_at = now() + RESNAP_DELAY; }
+        }
+        break;
     default:
         if (!live_active) break;
         if (e->type == damage_ev + XDamageNotify) {
@@ -308,6 +361,12 @@ static int apply_setting(const char *k, const char *v) {
     if (!strcmp(k, "max_zoom")) { double d = atof(v); if (d <= 1.0) return -1; max_zoom = d; return 0; }
     if (!strcmp(k, "edge_margin")) { edge_margin = atoi(v); return 0; }
     if (!strcmp(k, "refresh_ms")) { refresh_s = atof(v) / 1000.0; return 0; }
+    if (!strcmp(k, "workspace_switch")) {
+        if (!strcmp(v, "refresh")) ws_exit = 0;
+        else if (!strcmp(v, "exit")) ws_exit = 1;
+        else return -1;
+        return 0;
+    }
     if (!strcmp(k, "live")) return parse_bool(v, &live);
     if (!strcmp(k, "nearest")) return parse_bool(v, &use_nearest);
     if (!strcmp(k, "invert")) return parse_bool(v, &invert);
@@ -353,6 +412,7 @@ static void usage(const char *p) {
         "usage: %s [options]\n"
         "  -m MODS   modifier(s) for scroll, e.g. ctrl+shift (default), super, ctrl+alt\n"
         "  -c FILE   config file (default ~/.config/x11-magnifier/config); flags override it\n"
+        "  -w MODE   on workspace switch: refresh (default) re-reads the screen, exit leaves zoom\n"
         "  -s STEP   zoom factor per scroll tick (default %.2f)\n"
         "  -M MAX    maximum zoom (default %.0f)\n"
         "  -e PX     edge-pan margin in pixels (default %d)\n"
@@ -362,7 +422,7 @@ static void usage(const char *p) {
         "  -i        invert scroll direction (for natural scrolling)\n"
         "Scroll up = zoom in, down = zoom out; at 1.0x the overlay goes away.\n"
         "A mouse click also leaves the zoomed view.\n"
-        "Config file keys: modifiers, step, max_zoom, edge_margin,\n"
+        "Config file keys: modifiers, workspace_switch, step, max_zoom, edge_margin,\n"
         "refresh_ms, live, nearest, invert (see the man page).\n",
         p, step, max_zoom, edge_margin);
 }
@@ -384,11 +444,12 @@ int main(int argc, char **argv) {
     }
 
     int c;
-    while ((c = getopt(argc, argv, "m:c:s:M:e:r:pnih")) != -1) {
+    while ((c = getopt(argc, argv, "m:c:w:s:M:e:r:pnih")) != -1) {
         int bad = 0;
         switch (c) {
         case 'm': bad = apply_setting("modifiers", optarg); break;
         case 'c': break; /* handled above */
+        case 'w': bad = apply_setting("workspace_switch", optarg); break;
         case 's': bad = apply_setting("step", optarg); break;
         case 'M': bad = apply_setting("max_zoom", optarg); break;
         case 'e': bad = apply_setting("edge_margin", optarg); break;
@@ -421,6 +482,7 @@ int main(int argc, char **argv) {
         }
     }
 
+    net_cur_desk = XInternAtom(dpy, "_NET_CURRENT_DESKTOP", False);
     XSetErrorHandler(err_handler);
     /* Grab with every NumLock/CapsLock combination so they don't break it. */
     unsigned int locks[] = {0, LockMask, Mod2Mask, LockMask | Mod2Mask};
@@ -452,9 +514,10 @@ int main(int argc, char **argv) {
         double t = now();
         if (zoomed) pan_tick(t - last);
         if (live_active && dirty && t - last_refresh >= refresh_s) {
-            refresh_snap();
+            refresh_snap(1);
             render();
         }
+        if (live_active && resnap_pending && t >= resnap_at) resnap_base();
         last = t;
     }
     stop_zoom();

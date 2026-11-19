@@ -3,6 +3,8 @@ x11-magnifier (0.3.0) unstable; urgency=medium
   * Initial release: static zoom via Ctrl+Shift+scroll, edge panning.
   * Live refresh of the zoomed view (Composite+Damage); -p static, -r rate.
   * Config file (-c).
+  * Re-read the screen when windows close/move or the workspace changes
+    (workspace_switch = refresh|exit).
   * Dual-licensed MIT or Apache-2.0.
 
  -- Adi Zaimi <adizaimi@yahoo.com>  Thu, 19 Nov 2026 15:27:31 -0500

@@ -4,6 +4,9 @@
 # Modifiers held with two-finger scroll: ctrl, shift, alt, super joined by '+'.
 modifiers = ctrl+shift
 
+# On a workspace switch: refresh (re-read the screen) or exit (leave the zoom).
+workspace_switch = refresh
+
 # Zoom factor per scroll tick, and the maximum zoom.
 step = 1.08
 max_zoom = 12

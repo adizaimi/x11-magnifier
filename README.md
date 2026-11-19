@@ -11,8 +11,10 @@ Full-screen magnifier for X11. Ctrl+Shift + two-finger scroll.
 The zoomed view is live: windows are redirected with the Composite extension and
 repainted over the initial snapshot when XDamage reports changes (at most every
 200 ms), so typing in a terminal shows up. `-p` gives the plain static snapshot.
-Windows that close while zoomed linger until you zoom out, and GL/video windows
-may not update.
+When a window closes or moves, or you switch workspace, the view re-reads the real
+screen after a short pause (about 0.25 s) so nothing stale lingers; set
+`workspace_switch = exit` (or `-w exit`) to leave the zoom on a workspace switch
+instead. GL/video windows may not update.
 
 ## Install as a Debian package
 
@@ -33,13 +35,14 @@ No xbindkeys or icewm key config is needed: x11-magnifier grabs the scroll butto
 
 Everything below can also live in `~/.config/x11-magnifier/config` (`key = value` lines;
 see `x11-magnifier.conf.example`, installed under `/usr/share/doc/x11-magnifier/examples/`).
-Keys: `modifiers`, `step`, `max_zoom`, `edge_margin`, `refresh_ms`,
+Keys: `modifiers`, `workspace_switch`, `step`, `max_zoom`, `edge_margin`, `refresh_ms`,
 `live`, `nearest`, `invert`. Flags override the file; `-c FILE` picks another file.
 
 ## Options
 
     -m MODS   ctrl+shift (default), super, ctrl+alt, ...
     -c FILE   config file
+    -w MODE   workspace switch: refresh (default) or exit
     -s STEP   zoom factor per scroll tick (default 1.08)
     -M MAX    max zoom (default 12)
     -e PX     edge-pan margin (default 40)
