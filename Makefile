@@ -1,6 +1,6 @@
 CC      ?= cc
 CFLAGS  ?= -O2 -Wall -Wextra
-LDLIBS  += -lX11 -lXrender
+LDLIBS  += -lX11 -lXrender -lXcomposite -lXdamage
 PREFIX  ?= /usr/local
 
 x11-loupe: loupe.c

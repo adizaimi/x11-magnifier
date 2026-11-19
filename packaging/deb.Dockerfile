@@ -9,7 +9,7 @@
 # ---- build the .deb -------------------------------------------------------
 FROM debian:bookworm AS build
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential debhelper dpkg-dev libx11-dev libxrender-dev lintian \
+        build-essential debhelper dpkg-dev libx11-dev libxrender-dev libxcomposite-dev libxdamage-dev lintian \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY . .

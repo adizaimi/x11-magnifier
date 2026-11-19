@@ -1,5 +1,6 @@
-x11-loupe (0.1.0) unstable; urgency=medium
+x11-loupe (0.2.0) unstable; urgency=medium
 
   * Initial release: static zoom via Ctrl+Shift+scroll, edge panning.
+  * Live refresh of the zoomed view (Composite+Damage); -p static, -r rate.
 
  -- Adi Zaimi <adizaimi@yahoo.com>  Thu, 19 Nov 2026 15:27:31 -0500

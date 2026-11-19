@@ -3,13 +3,14 @@
 x11-loupe \- full-screen magnifier for X11
 .SH SYNOPSIS
 .B x11-loupe
-[\fB\-m\fR \fIMODS\fR] [\fB\-s\fR \fISTEP\fR] [\fB\-M\fR \fIMAX\fR] [\fB\-e\fR \fIPX\fR] [\fB\-n\fR] [\fB\-i\fR]
+[\fB\-m\fR \fIMODS\fR] [\fB\-s\fR \fISTEP\fR] [\fB\-M\fR \fIMAX\fR] [\fB\-e\fR \fIPX\fR] [\fB\-r\fR \fIMS\fR] [\fB\-p\fR] [\fB\-n\fR] [\fB\-i\fR]
 .SH DESCRIPTION
 Runs in the background and grabs modifier+scroll on the X root window.
 Scrolling up zooms the whole screen in around the pointer; pushing the pointer
 against a screen edge pans the view; scrolling down zooms out and, at 1.0x,
 removes the magnified view. Esc or a mouse click also leaves the zoomed view.
-The view is a snapshot taken when zooming starts and does not live-update.
+The view live-updates: windows are redirected with the Composite extension and
+repainted on XDamage events.
 .SH OPTIONS
 .TP
 .BI \-m " MODS"
@@ -23,6 +24,12 @@ Maximum zoom. Default 12.
 .TP
 .BI \-e " PX"
 Edge-pan margin in pixels. Default 40.
+.TP
+.BI \-r " MS"
+Minimum milliseconds between live refreshes. Default 200.
+.TP
+.B \-p
+Plain static snapshot, no live refresh.
 .TP
 .B \-n
 Nearest-neighbour scaling instead of bilinear.

@@ -7,13 +7,20 @@
  * content under the pointer fixed; pushing the pointer against a screen edge
  * pans the view. Scrolling down to 1.0x (or Esc, or a click) drops the overlay.
  *
- * This is the static-snapshot version: the zoomed view does not live-update.
+ * Live refresh: while zoomed, the root's children are redirected with the
+ * Composite extension (automatic mode, so no compositor is needed and it can
+ * coexist with one). Each window's current pixmap is repainted over the
+ * initial snapshot whenever XDamage reports a change, at a limited rate, so
+ * typing in a terminal shows up in the zoomed view. -p disables this and
+ * leaves the plain static snapshot.
  */
 #define _POSIX_C_SOURCE 200809L
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
 #include <X11/extensions/Xrender.h>
+#include <X11/extensions/Xcomposite.h>
+#include <X11/extensions/Xdamage.h>
 #include <errno.h>
 #include <poll.h>
 #include <signal.h>
@@ -32,6 +39,8 @@ static int invert = 0;          /* swap scroll direction (natural scrolling) */
 static int use_nearest = 0;     /* nearest-neighbour instead of bilinear */
 static int edge_margin = 40;    /* px from screen edge where panning starts */
 static double pan_speed = 1100; /* screen px/second at the very edge */
+static int live = 1;            /* live refresh via Composite+Damage */
+static double refresh_s = 0.2;  /* minimum seconds between refreshes */
 
 /* ---- X state ---- */
 static Display *dpy;
@@ -39,9 +48,15 @@ static Window root, ov;
 static int scr, W, H, depth;
 static Visual *vis;
 static XRenderPictFormat *pfmt;
-static Pixmap snap, back;
-static Picture psnap, pback;
+static Pixmap base, snap, back; /* base: pristine snapshot; snap: base + live windows */
+static Picture psnap, pdst, pback;
 static GC gc;
+static int live_active, damage_ev, dirty;
+static double last_refresh;
+
+#define MAXTRACK 256
+static struct { Window w; Damage d; int seen; } track[MAXTRACK];
+static int ntrack;
 static KeyCode esc_key;
 
 /* ---- zoom state ---- */
@@ -68,6 +83,8 @@ static void clamp_origin(void) {
     oy = clampd(oy, 0, H - H / z);
 }
 
+static void refresh_snap(void);
+
 static void render(void) {
     XTransform t = {{
         {XDoubleToFixed(1.0 / z), 0, XDoubleToFixed(ox)},
@@ -81,19 +98,68 @@ static void render(void) {
     XFlush(dpy);
 }
 
+static double now(void);
+
+static void track_window(Window w, int *found) {
+    for (int i = 0; i < ntrack; i++)
+        if (track[i].w == w) { track[i].seen = 1; *found = 1; return; }
+    if (ntrack < MAXTRACK) {
+        track[ntrack].w = w;
+        track[ntrack].d = XDamageCreate(dpy, w, XDamageReportNonEmpty);
+        track[ntrack].seen = 1;
+        ntrack++;
+    }
+}
+
+/* Rebuild snap = base + current contents of every viewable top-level window. */
+static void refresh_snap(void) {
+    Window rr, pr, *kids = NULL;
+    unsigned int n = 0;
+    for (int i = 0; i < ntrack; i++) track[i].seen = 0;
+    XCopyArea(dpy, base, snap, gc, 0, 0, W, H, 0, 0);
+    if (XQueryTree(dpy, root, &rr, &pr, &kids, &n)) {
+        for (unsigned i = 0; i < n; i++) { /* bottom-to-top stacking order */
+            Window w = kids[i];
+            XWindowAttributes a;
+            if (w == ov || !XGetWindowAttributes(dpy, w, &a)) continue;
+            if (a.class != InputOutput || a.map_state != IsViewable) continue;
+            int found = 0;
+            track_window(w, &found);
+            XRenderPictFormat *f = XRenderFindVisualFormat(dpy, a.visual);
+            if (!f) continue;
+            Pixmap wp = XCompositeNameWindowPixmap(dpy, w);
+            Picture wpic = XRenderCreatePicture(dpy, wp, f, 0, NULL);
+            XRenderComposite(dpy, PictOpOver, wpic, None, pdst, 0, 0, 0, 0,
+                             a.x + a.border_width, a.y + a.border_width, a.width, a.height);
+            XRenderFreePicture(dpy, wpic);
+            XFreePixmap(dpy, wp);
+        }
+        if (kids) XFree(kids);
+    }
+    /* drop damage objects for windows that went away */
+    for (int i = 0; i < ntrack;) {
+        if (!track[i].seen) { XDamageDestroy(dpy, track[i].d); track[i] = track[--ntrack]; }
+        else i++;
+    }
+    last_refresh = now();
+    dirty = 0;
+}
+
 static void start_zoom(void) {
     /* Snapshot the visible screen server-side (before the overlay exists). */
-    snap = XCreatePixmap(dpy, root, W, H, depth);
     XGCValues v;
     v.subwindow_mode = IncludeInferiors;
-    GC sgc = XCreateGC(dpy, root, GCSubwindowMode, &v);
-    XCopyArea(dpy, root, snap, sgc, 0, 0, W, H, 0, 0);
-    XFreeGC(dpy, sgc);
+    gc = XCreateGC(dpy, root, GCSubwindowMode, &v);
+    base = XCreatePixmap(dpy, root, W, H, depth);
+    XCopyArea(dpy, root, base, gc, 0, 0, W, H, 0, 0);
+    snap = XCreatePixmap(dpy, root, W, H, depth);
+    XCopyArea(dpy, base, snap, gc, 0, 0, W, H, 0, 0);
 
     back = XCreatePixmap(dpy, root, W, H, depth);
     XRenderPictureAttributes pa;
     pa.repeat = RepeatPad;
     psnap = XRenderCreatePicture(dpy, snap, pfmt, CPRepeat, &pa);
+    pdst = XRenderCreatePicture(dpy, snap, pfmt, 0, NULL);
     pback = XRenderCreatePicture(dpy, back, pfmt, 0, NULL);
 
     XSetWindowAttributes wa;
@@ -102,22 +168,43 @@ static void start_zoom(void) {
     wa.event_mask = ButtonPressMask | ExposureMask;
     ov = XCreateWindow(dpy, root, 0, 0, W, H, 0, CopyFromParent, InputOutput,
                        CopyFromParent, CWOverrideRedirect | CWBackPixmap | CWEventMask, &wa);
-    gc = XCreateGC(dpy, ov, 0, NULL);
     XMapRaised(dpy, ov);
 
     /* Esc exits, but only while zoomed so we don't steal it otherwise. */
     XGrabKey(dpy, esc_key, AnyModifier, root, False, GrabModeAsync, GrabModeAsync);
     zoomed = 1;
+
+    if (live) {
+        XCompositeRedirectSubwindows(dpy, root, CompositeRedirectAutomatic);
+        XWindowAttributes ra;
+        XGetWindowAttributes(dpy, root, &ra);
+        XSelectInput(dpy, root, ra.your_event_mask | SubstructureNotifyMask);
+        live_active = 1;
+        dirty = 0;
+        last_refresh = 0;
+        refresh_snap(); /* also starts damage tracking */
+    }
 }
 
 static void stop_zoom(void) {
     if (!zoomed) return;
     XUngrabKey(dpy, esc_key, AnyModifier, root);
+    if (live_active) {
+        for (int i = 0; i < ntrack; i++) XDamageDestroy(dpy, track[i].d);
+        ntrack = 0;
+        XCompositeUnredirectSubwindows(dpy, root, CompositeRedirectAutomatic);
+        XWindowAttributes ra;
+        XGetWindowAttributes(dpy, root, &ra);
+        XSelectInput(dpy, root, ra.your_event_mask & ~SubstructureNotifyMask);
+        live_active = 0;
+    }
     XUnmapWindow(dpy, ov);
     XFreeGC(dpy, gc);
     XDestroyWindow(dpy, ov);
     XRenderFreePicture(dpy, psnap);
+    XRenderFreePicture(dpy, pdst);
     XRenderFreePicture(dpy, pback);
+    XFreePixmap(dpy, base);
     XFreePixmap(dpy, snap);
     XFreePixmap(dpy, back);
     XFlush(dpy);
@@ -183,6 +270,19 @@ static void handle(XEvent *e) {
     case Expose:
         if (zoomed && e->xexpose.count == 0) render();
         break;
+    default:
+        if (!live_active) break;
+        if (e->type == damage_ev + XDamageNotify) {
+            XDamageNotifyEvent *de = (XDamageNotifyEvent *)e;
+            XDamageSubtract(dpy, de->damage, None, None);
+            dirty = 1;
+        } else if (e->type == MapNotify || e->type == UnmapNotify ||
+                   e->type == ConfigureNotify || e->type == CreateNotify ||
+                   e->type == DestroyNotify || e->type == ReparentNotify ||
+                   e->type == CirculateNotify) {
+            dirty = 1;
+        }
+        break;
     }
 }
 
@@ -208,6 +308,8 @@ static void usage(const char *p) {
         "  -s STEP   zoom factor per scroll tick (default %.2f)\n"
         "  -M MAX    maximum zoom (default %.0f)\n"
         "  -e PX     edge-pan margin in pixels (default %d)\n"
+        "  -r MS     min milliseconds between live refreshes (default 200)\n"
+        "  -p        plain static snapshot, no live refresh\n"
         "  -n        nearest-neighbour scaling (crisp pixels) instead of bilinear\n"
         "  -i        invert scroll direction (for natural scrolling)\n"
         "Scroll up = zoom in, down = zoom out; at 1.0x the overlay goes away.\n"
@@ -217,7 +319,7 @@ static void usage(const char *p) {
 
 int main(int argc, char **argv) {
     int c;
-    while ((c = getopt(argc, argv, "m:s:M:e:nih")) != -1) {
+    while ((c = getopt(argc, argv, "m:s:M:e:r:pnih")) != -1) {
         switch (c) {
         case 'm':
             if (parse_mods(optarg, &want_mods)) { fprintf(stderr, "bad -m\n"); return 2; }
@@ -225,6 +327,8 @@ int main(int argc, char **argv) {
         case 's': step = atof(optarg); if (step <= 1.0) { fprintf(stderr, "step must be > 1\n"); return 2; } break;
         case 'M': max_zoom = atof(optarg); if (max_zoom <= 1.0) { fprintf(stderr, "bad -M\n"); return 2; } break;
         case 'e': edge_margin = atoi(optarg); break;
+        case 'r': refresh_s = atof(optarg) / 1000.0; break;
+        case 'p': live = 0; break;
         case 'n': use_nearest = 1; break;
         case 'i': invert = 1; break;
         default: usage(argv[0]); return c == 'h' ? 0 : 2;
@@ -242,6 +346,15 @@ int main(int argc, char **argv) {
     pfmt = XRenderFindVisualFormat(dpy, vis);
     if (!pfmt) { fprintf(stderr, "x11-loupe: XRender not available\n"); return 1; }
     esc_key = XKeysymToKeycode(dpy, XK_Escape);
+    if (live) {
+        int ev, er, cmaj, cmin;
+        if (!XCompositeQueryExtension(dpy, &ev, &er) ||
+            !XCompositeQueryVersion(dpy, &cmaj, &cmin) || (cmaj == 0 && cmin < 2) ||
+            !XDamageQueryExtension(dpy, &damage_ev, &er)) {
+            fprintf(stderr, "x11-loupe: Composite/Damage unavailable, using static snapshot\n");
+            live = 0;
+        }
+    }
 
     XSetErrorHandler(err_handler);
     /* Grab with every NumLock/CapsLock combination so they don't break it. */
@@ -273,6 +386,10 @@ int main(int argc, char **argv) {
         poll(&pfd, 1, zoomed ? 16 : -1);
         double t = now();
         if (zoomed) pan_tick(t - last);
+        if (live_active && dirty && t - last_refresh >= refresh_s) {
+            refresh_snap();
+            render();
+        }
         last = t;
     }
     stop_zoom();

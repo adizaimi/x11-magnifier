@@ -7,18 +7,21 @@ Full-screen magnifier for X11. Ctrl+Shift + two-finger scroll.
 - **Scroll down** zooms out; at 1.0x the overlay disappears (the daemon keeps waiting).
 - **Esc** or a **mouse click** also leaves the zoomed view.
 
-This is the static-snapshot version: the zoomed view is a screenshot taken when
-you start zooming, so it does not live-update as you type (planned next).
+The zoomed view is live: windows are redirected with the Composite extension and
+repainted over the initial snapshot when XDamage reports changes (at most every
+200 ms), so typing in a terminal shows up. `-p` gives the plain static snapshot.
+Windows that close while zoomed linger until you zoom out, and GL/video windows
+may not update.
 
 ## Install as a Debian package
 
-    sudo apt install build-essential debhelper libx11-dev libxrender-dev
+    sudo apt install build-essential debhelper libx11-dev libxrender-dev libxcomposite-dev libxdamage-dev
     dpkg-buildpackage -us -uc -b
     sudo dpkg -i ../x11-loupe_*.deb
 
 ## Build / run without packaging
 
-    sudo apt install build-essential libx11-dev libxrender-dev
+    sudo apt install build-essential libx11-dev libxrender-dev libxcomposite-dev libxdamage-dev
     make && make install          # installs to /usr/local/bin (PREFIX=$HOME/.local for a user install)
     x11-loupe &                       # e.g. from ~/.icewm/startup
 
@@ -31,6 +34,8 @@ No xbindkeys or icewm key config is needed: x11-loupe grabs the scroll buttons i
     -s STEP   zoom factor per scroll tick (default 1.08)
     -M MAX    max zoom (default 12)
     -e PX     edge-pan margin (default 40)
+    -r MS     min ms between live refreshes (default 200)
+    -p        plain static snapshot, no live refresh
     -n        nearest-neighbour scaling instead of bilinear
     -i        invert direction (natural scrolling)
 

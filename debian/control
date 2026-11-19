@@ -2,7 +2,7 @@ Source: x11-loupe
 Section: x11
 Priority: optional
 Maintainer: Adi Zaimi <adizaimi@yahoo.com>
-Build-Depends: debhelper-compat (= 13), libx11-dev, libxrender-dev
+Build-Depends: debhelper-compat (= 13), libx11-dev, libxrender-dev, libxcomposite-dev, libxdamage-dev
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
 
