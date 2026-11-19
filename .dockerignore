@@ -1,4 +1,4 @@
 dist/
 .git
 *.deb
-screen-loupe
+x11-loupe

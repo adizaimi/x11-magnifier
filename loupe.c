@@ -1,5 +1,5 @@
 /*
- * screen-loupe - full-screen magnifier for X11, driven by Ctrl+Shift+two-finger scroll.
+ * x11-loupe - full-screen magnifier for X11, driven by Ctrl+Shift+two-finger scroll.
  *
  * Runs as a small daemon. It passively grabs Mod+Button4/5 (scroll up/down) on
  * the root window. The first "zoom in" snapshots the screen and shows a scaled
@@ -232,7 +232,7 @@ int main(int argc, char **argv) {
     }
 
     dpy = XOpenDisplay(NULL);
-    if (!dpy) { fprintf(stderr, "screen-loupe: cannot open display\n"); return 1; }
+    if (!dpy) { fprintf(stderr, "x11-loupe: cannot open display\n"); return 1; }
     scr = DefaultScreen(dpy);
     root = RootWindow(dpy, scr);
     W = DisplayWidth(dpy, scr);
@@ -240,7 +240,7 @@ int main(int argc, char **argv) {
     depth = DefaultDepth(dpy, scr);
     vis = DefaultVisual(dpy, scr);
     pfmt = XRenderFindVisualFormat(dpy, vis);
-    if (!pfmt) { fprintf(stderr, "screen-loupe: XRender not available\n"); return 1; }
+    if (!pfmt) { fprintf(stderr, "x11-loupe: XRender not available\n"); return 1; }
     esc_key = XKeysymToKeycode(dpy, XK_Escape);
 
     XSetErrorHandler(err_handler);
@@ -252,7 +252,7 @@ int main(int argc, char **argv) {
                         GrabModeAsync, GrabModeAsync, None, None);
     XSync(dpy, False);
     if (grab_failed) {
-        fprintf(stderr, "screen-loupe: that scroll+modifier combo is already grabbed by another client\n");
+        fprintf(stderr, "x11-loupe: that scroll+modifier combo is already grabbed by another client\n");
         return 1;
     }
 

@@ -1,4 +1,4 @@
-Source: screen-loupe
+Source: x11-loupe
 Section: x11
 Priority: optional
 Maintainer: Adi Zaimi <adizaimi@yahoo.com>
@@ -6,9 +6,11 @@ Build-Depends: debhelper-compat (= 13), libx11-dev, libxrender-dev
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
 
-Package: screen-loupe
+Package: x11-loupe
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
+Conflicts: screen-loupe
+Replaces: screen-loupe
 Description: full-screen magnifier for X11 driven by Ctrl+Shift+scroll
  Zooms the whole screen around the pointer with modifier plus two-finger
  scroll, pans when the pointer reaches a screen edge, and goes away when

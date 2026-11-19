@@ -1,4 +1,4 @@
-# screen-loupe
+# x11-loupe
 
 Full-screen magnifier for X11. Ctrl+Shift + two-finger scroll.
 
@@ -14,15 +14,15 @@ you start zooming, so it does not live-update as you type (planned next).
 
     sudo apt install build-essential debhelper libx11-dev libxrender-dev
     dpkg-buildpackage -us -uc -b
-    sudo dpkg -i ../screen-loupe_*.deb
+    sudo dpkg -i ../x11-loupe_*.deb
 
 ## Build / run without packaging
 
     sudo apt install build-essential libx11-dev libxrender-dev
     make && make install          # installs to /usr/local/bin (PREFIX=$HOME/.local for a user install)
-    screen-loupe &                       # e.g. from ~/.icewm/startup
+    x11-loupe &                       # e.g. from ~/.icewm/startup
 
-No xbindkeys or icewm key config is needed: screen-loupe grabs the scroll buttons itself
+No xbindkeys or icewm key config is needed: x11-loupe grabs the scroll buttons itself
 (icewm's `keys` file can't bind mouse buttons anyway).
 
 ## Options

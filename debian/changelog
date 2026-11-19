@@ -1,4 +1,4 @@
-screen-loupe (0.1.0) unstable; urgency=medium
+x11-loupe (0.1.0) unstable; urgency=medium
 
   * Initial release: static zoom via Ctrl+Shift+scroll, edge panning.
 

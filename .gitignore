@@ -1,9 +1,9 @@
-screen-loupe
+x11-loupe
 *.deb
 *.buildinfo
 *.changes
 debian/.debhelper/
-debian/screen-loupe/
+debian/x11-loupe/
 debian/*.substvars
 debian/files
 debian/debhelper-build-stamp
