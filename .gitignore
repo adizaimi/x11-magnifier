@@ -1,9 +1,9 @@
-x11-loupe
+x11-magnifier
 *.deb
 *.buildinfo
 *.changes
 debian/.debhelper/
-debian/x11-loupe/
+debian/x11-magnifier/
 debian/*.substvars
 debian/files
 debian/debhelper-build-stamp

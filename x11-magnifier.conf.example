@@ -1,4 +1,4 @@
-# ~/.config/x11-loupe/config -- copy this file there and edit.
+# ~/.config/x11-magnifier/config -- copy this file there and edit.
 # Lines are "key = value"; '#' starts a comment. Command-line flags override it.
 
 # Modifiers held with two-finger scroll: ctrl, shift, alt, super joined by '+'.

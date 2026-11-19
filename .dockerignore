@@ -1,4 +1,4 @@
 dist/
 .git
 *.deb
-x11-loupe
+x11-magnifier

@@ -1,5 +1,5 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: x11-loupe
+Upstream-Name: x11-magnifier
 
 Files: *
 Copyright: 2026 Adi Zaimi

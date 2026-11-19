@@ -1,5 +1,5 @@
 /*
- * x11-loupe - full-screen magnifier for X11, driven by Ctrl+Shift+two-finger scroll.
+ * x11-magnifier - full-screen magnifier for X11, driven by Ctrl+Shift+two-finger scroll.
  *
  * Runs as a small daemon. It passively grabs Mod+Button4/5 (scroll up/down) on
  * the root window. The first "zoom in" snapshots the screen and shows a scaled
@@ -176,7 +176,7 @@ static void start_zoom(void) {
     XGrabKey(dpy, esc_key, AnyModifier, root, False, GrabModeAsync, GrabModeAsync);
     XSync(dpy, False);
     if (grab_failed)
-        fprintf(stderr, "x11-loupe: exit key is grabbed by another client; "
+        fprintf(stderr, "x11-magnifier: exit key is grabbed by another client; "
                         "use a click or scroll down instead (or set exit_key)\n");
     zoomed = 1;
 
@@ -344,7 +344,7 @@ static char *trim(char *p) {
 static int load_config(const char *path, int must_exist) {
     FILE *f = fopen(path, "r");
     if (!f) {
-        if (must_exist) { fprintf(stderr, "x11-loupe: cannot read %s\n", path); return -1; }
+        if (must_exist) { fprintf(stderr, "x11-magnifier: cannot read %s\n", path); return -1; }
         return 0;
     }
     char line[512];
@@ -356,10 +356,10 @@ static int load_config(const char *path, int must_exist) {
         char *p = trim(line);
         if (!*p) continue;
         char *eq = strchr(p, '=');
-        if (!eq) { fprintf(stderr, "x11-loupe: %s:%d: expected key = value\n", path, n); rc = -1; continue; }
+        if (!eq) { fprintf(stderr, "x11-magnifier: %s:%d: expected key = value\n", path, n); rc = -1; continue; }
         *eq = 0;
         if (apply_setting(trim(p), trim(eq + 1))) {
-            fprintf(stderr, "x11-loupe: %s:%d: bad setting\n", path, n);
+            fprintf(stderr, "x11-magnifier: %s:%d: bad setting\n", path, n);
             rc = -1;
         }
     }
@@ -372,7 +372,7 @@ static void usage(const char *p) {
         "usage: %s [options]\n"
         "  -m MODS   modifier(s) for scroll, e.g. ctrl+shift (default), super, ctrl+alt\n"
         "  -k KEY    key that leaves the zoomed view, an X keysym name (default Escape)\n"
-        "  -c FILE   config file (default ~/.config/x11-loupe/config); flags override it\n"
+        "  -c FILE   config file (default ~/.config/x11-magnifier/config); flags override it\n"
         "  -s STEP   zoom factor per scroll tick (default %.2f)\n"
         "  -M MAX    maximum zoom (default %.0f)\n"
         "  -e PX     edge-pan margin in pixels (default %d)\n"
@@ -397,8 +397,8 @@ int main(int argc, char **argv) {
     } else {
         char path[1024];
         const char *xdg = getenv("XDG_CONFIG_HOME"), *home = getenv("HOME");
-        if (xdg && *xdg) snprintf(path, sizeof path, "%s/x11-loupe/config", xdg);
-        else if (home) snprintf(path, sizeof path, "%s/.config/x11-loupe/config", home);
+        if (xdg && *xdg) snprintf(path, sizeof path, "%s/x11-magnifier/config", xdg);
+        else if (home) snprintf(path, sizeof path, "%s/.config/x11-magnifier/config", home);
         else path[0] = 0;
         if (path[0] && load_config(path, 0)) return 2;
     }
@@ -419,11 +419,11 @@ int main(int argc, char **argv) {
         case 'i': invert = 1; break;
         default: usage(argv[0]); return c == 'h' ? 0 : 2;
         }
-        if (bad) { fprintf(stderr, "x11-loupe: bad value for -%c: %s\n", c, optarg); return 2; }
+        if (bad) { fprintf(stderr, "x11-magnifier: bad value for -%c: %s\n", c, optarg); return 2; }
     }
 
     dpy = XOpenDisplay(NULL);
-    if (!dpy) { fprintf(stderr, "x11-loupe: cannot open display\n"); return 1; }
+    if (!dpy) { fprintf(stderr, "x11-magnifier: cannot open display\n"); return 1; }
     scr = DefaultScreen(dpy);
     root = RootWindow(dpy, scr);
     W = DisplayWidth(dpy, scr);
@@ -431,15 +431,15 @@ int main(int argc, char **argv) {
     depth = DefaultDepth(dpy, scr);
     vis = DefaultVisual(dpy, scr);
     pfmt = XRenderFindVisualFormat(dpy, vis);
-    if (!pfmt) { fprintf(stderr, "x11-loupe: XRender not available\n"); return 1; }
+    if (!pfmt) { fprintf(stderr, "x11-magnifier: XRender not available\n"); return 1; }
     esc_key = XKeysymToKeycode(dpy, exit_keysym);
-    if (!esc_key) { fprintf(stderr, "x11-loupe: exit key has no keycode on this keyboard\n"); return 1; }
+    if (!esc_key) { fprintf(stderr, "x11-magnifier: exit key has no keycode on this keyboard\n"); return 1; }
     if (live) {
         int ev, er, cmaj, cmin;
         if (!XCompositeQueryExtension(dpy, &ev, &er) ||
             !XCompositeQueryVersion(dpy, &cmaj, &cmin) || (cmaj == 0 && cmin < 2) ||
             !XDamageQueryExtension(dpy, &damage_ev, &er)) {
-            fprintf(stderr, "x11-loupe: Composite/Damage unavailable, using static snapshot\n");
+            fprintf(stderr, "x11-magnifier: Composite/Damage unavailable, using static snapshot\n");
             live = 0;
         }
     }
@@ -453,7 +453,7 @@ int main(int argc, char **argv) {
                         GrabModeAsync, GrabModeAsync, None, None);
     XSync(dpy, False);
     if (grab_failed) {
-        fprintf(stderr, "x11-loupe: that scroll+modifier combo is already grabbed by another client\n");
+        fprintf(stderr, "x11-magnifier: that scroll+modifier combo is already grabbed by another client\n");
         return 1;
     }
 

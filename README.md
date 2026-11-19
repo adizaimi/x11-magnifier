@@ -1,4 +1,4 @@
-# x11-loupe
+# x11-magnifier
 
 Full-screen magnifier for X11. Ctrl+Shift + two-finger scroll.
 
@@ -17,21 +17,21 @@ may not update.
 
     sudo apt install build-essential debhelper libx11-dev libxrender-dev libxcomposite-dev libxdamage-dev
     dpkg-buildpackage -us -uc -b
-    sudo dpkg -i ../x11-loupe_*.deb
+    sudo dpkg -i ../x11-magnifier_*.deb
 
 ## Build / run without packaging
 
     sudo apt install build-essential libx11-dev libxrender-dev libxcomposite-dev libxdamage-dev
     make && make install          # installs to /usr/local/bin (PREFIX=$HOME/.local for a user install)
-    x11-loupe &                       # e.g. from ~/.icewm/startup
+    x11-magnifier &                       # e.g. from ~/.icewm/startup
 
-No xbindkeys or icewm key config is needed: x11-loupe grabs the scroll buttons itself
+No xbindkeys or icewm key config is needed: x11-magnifier grabs the scroll buttons itself
 (icewm's `keys` file can't bind mouse buttons anyway).
 
 ## Configuration
 
-Everything below can also live in `~/.config/x11-loupe/config` (`key = value` lines;
-see `x11-loupe.conf.example`, installed under `/usr/share/doc/x11-loupe/examples/`).
+Everything below can also live in `~/.config/x11-magnifier/config` (`key = value` lines;
+see `x11-magnifier.conf.example`, installed under `/usr/share/doc/x11-magnifier/examples/`).
 Keys: `modifiers`, `exit_key`, `step`, `max_zoom`, `edge_margin`, `refresh_ms`,
 `live`, `nearest`, `invert`. Flags override the file; `-c FILE` picks another file.
 
