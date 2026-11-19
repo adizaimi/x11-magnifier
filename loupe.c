@@ -57,7 +57,8 @@ static double last_refresh;
 #define MAXTRACK 256
 static struct { Window w; Damage d; int seen; } track[MAXTRACK];
 static int ntrack;
-static KeyCode esc_key;
+static KeyCode esc_key;          /* key that leaves the zoomed view */
+static KeySym exit_keysym = XK_Escape;
 
 /* ---- zoom state ---- */
 static int zoomed;
@@ -171,7 +172,12 @@ static void start_zoom(void) {
     XMapRaised(dpy, ov);
 
     /* Esc exits, but only while zoomed so we don't steal it otherwise. */
+    grab_failed = 0;
     XGrabKey(dpy, esc_key, AnyModifier, root, False, GrabModeAsync, GrabModeAsync);
+    XSync(dpy, False);
+    if (grab_failed)
+        fprintf(stderr, "x11-loupe: exit key is grabbed by another client; "
+                        "use a click or scroll down instead (or set exit_key)\n");
     zoomed = 1;
 
     if (live) {
@@ -301,10 +307,72 @@ static int parse_mods(const char *s, unsigned int *out) {
     return m ? 0 : -1;
 }
 
+static int parse_bool(const char *v, int *out) {
+    if (!strcasecmp(v, "1") || !strcasecmp(v, "on") || !strcasecmp(v, "yes") || !strcasecmp(v, "true")) *out = 1;
+    else if (!strcasecmp(v, "0") || !strcasecmp(v, "off") || !strcasecmp(v, "no") || !strcasecmp(v, "false")) *out = 0;
+    else return -1;
+    return 0;
+}
+
+/* One setting, from the config file or a command-line flag. 0 ok, -1 bad. */
+static int apply_setting(const char *k, const char *v) {
+    if (!strcmp(k, "modifiers")) return parse_mods(v, &want_mods);
+    if (!strcmp(k, "exit_key")) {
+        KeySym ks = XStringToKeysym(v);
+        if (ks == NoSymbol) return -1;
+        exit_keysym = ks;
+        return 0;
+    }
+    if (!strcmp(k, "step")) { double d = atof(v); if (d <= 1.0) return -1; step = d; return 0; }
+    if (!strcmp(k, "max_zoom")) { double d = atof(v); if (d <= 1.0) return -1; max_zoom = d; return 0; }
+    if (!strcmp(k, "edge_margin")) { edge_margin = atoi(v); return 0; }
+    if (!strcmp(k, "refresh_ms")) { refresh_s = atof(v) / 1000.0; return 0; }
+    if (!strcmp(k, "live")) return parse_bool(v, &live);
+    if (!strcmp(k, "nearest")) return parse_bool(v, &use_nearest);
+    if (!strcmp(k, "invert")) return parse_bool(v, &invert);
+    return -1;
+}
+
+static char *trim(char *p) {
+    while (*p == ' ' || *p == '\t') p++;
+    char *e = p + strlen(p);
+    while (e > p && (e[-1] == ' ' || e[-1] == '\t' || e[-1] == '\n' || e[-1] == '\r')) *--e = 0;
+    return p;
+}
+
+/* key = value lines, '#' comments. A missing default file is fine. */
+static int load_config(const char *path, int must_exist) {
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        if (must_exist) { fprintf(stderr, "x11-loupe: cannot read %s\n", path); return -1; }
+        return 0;
+    }
+    char line[512];
+    int n = 0, rc = 0;
+    while (fgets(line, sizeof line, f)) {
+        n++;
+        char *h = strchr(line, '#');
+        if (h) *h = 0;
+        char *p = trim(line);
+        if (!*p) continue;
+        char *eq = strchr(p, '=');
+        if (!eq) { fprintf(stderr, "x11-loupe: %s:%d: expected key = value\n", path, n); rc = -1; continue; }
+        *eq = 0;
+        if (apply_setting(trim(p), trim(eq + 1))) {
+            fprintf(stderr, "x11-loupe: %s:%d: bad setting\n", path, n);
+            rc = -1;
+        }
+    }
+    fclose(f);
+    return rc;
+}
+
 static void usage(const char *p) {
     fprintf(stderr,
         "usage: %s [options]\n"
         "  -m MODS   modifier(s) for scroll, e.g. ctrl+shift (default), super, ctrl+alt\n"
+        "  -k KEY    key that leaves the zoomed view, an X keysym name (default Escape)\n"
+        "  -c FILE   config file (default ~/.config/x11-loupe/config); flags override it\n"
         "  -s STEP   zoom factor per scroll tick (default %.2f)\n"
         "  -M MAX    maximum zoom (default %.0f)\n"
         "  -e PX     edge-pan margin in pixels (default %d)\n"
@@ -313,26 +381,45 @@ static void usage(const char *p) {
         "  -n        nearest-neighbour scaling (crisp pixels) instead of bilinear\n"
         "  -i        invert scroll direction (for natural scrolling)\n"
         "Scroll up = zoom in, down = zoom out; at 1.0x the overlay goes away.\n"
-        "Esc or a mouse click also exits the zoomed view.\n",
+        "The exit key or a mouse click also leaves the zoomed view.\n"
+        "Config file keys: modifiers, exit_key, step, max_zoom, edge_margin,\n"
+        "refresh_ms, live, nearest, invert (see the man page).\n",
         p, step, max_zoom, edge_margin);
 }
 
 int main(int argc, char **argv) {
+    /* defaults < config file < command-line flags */
+    const char *cfg = NULL;
+    for (int a = 1; a + 1 < argc; a++)
+        if (!strcmp(argv[a], "-c")) cfg = argv[a + 1];
+    if (cfg) {
+        if (load_config(cfg, 1)) return 2;
+    } else {
+        char path[1024];
+        const char *xdg = getenv("XDG_CONFIG_HOME"), *home = getenv("HOME");
+        if (xdg && *xdg) snprintf(path, sizeof path, "%s/x11-loupe/config", xdg);
+        else if (home) snprintf(path, sizeof path, "%s/.config/x11-loupe/config", home);
+        else path[0] = 0;
+        if (path[0] && load_config(path, 0)) return 2;
+    }
+
     int c;
-    while ((c = getopt(argc, argv, "m:s:M:e:r:pnih")) != -1) {
+    while ((c = getopt(argc, argv, "m:k:c:s:M:e:r:pnih")) != -1) {
+        int bad = 0;
         switch (c) {
-        case 'm':
-            if (parse_mods(optarg, &want_mods)) { fprintf(stderr, "bad -m\n"); return 2; }
-            break;
-        case 's': step = atof(optarg); if (step <= 1.0) { fprintf(stderr, "step must be > 1\n"); return 2; } break;
-        case 'M': max_zoom = atof(optarg); if (max_zoom <= 1.0) { fprintf(stderr, "bad -M\n"); return 2; } break;
-        case 'e': edge_margin = atoi(optarg); break;
-        case 'r': refresh_s = atof(optarg) / 1000.0; break;
+        case 'm': bad = apply_setting("modifiers", optarg); break;
+        case 'k': bad = apply_setting("exit_key", optarg); break;
+        case 'c': break; /* handled above */
+        case 's': bad = apply_setting("step", optarg); break;
+        case 'M': bad = apply_setting("max_zoom", optarg); break;
+        case 'e': bad = apply_setting("edge_margin", optarg); break;
+        case 'r': bad = apply_setting("refresh_ms", optarg); break;
         case 'p': live = 0; break;
         case 'n': use_nearest = 1; break;
         case 'i': invert = 1; break;
         default: usage(argv[0]); return c == 'h' ? 0 : 2;
         }
+        if (bad) { fprintf(stderr, "x11-loupe: bad value for -%c: %s\n", c, optarg); return 2; }
     }
 
     dpy = XOpenDisplay(NULL);
@@ -345,7 +432,8 @@ int main(int argc, char **argv) {
     vis = DefaultVisual(dpy, scr);
     pfmt = XRenderFindVisualFormat(dpy, vis);
     if (!pfmt) { fprintf(stderr, "x11-loupe: XRender not available\n"); return 1; }
-    esc_key = XKeysymToKeycode(dpy, XK_Escape);
+    esc_key = XKeysymToKeycode(dpy, exit_keysym);
+    if (!esc_key) { fprintf(stderr, "x11-loupe: exit key has no keycode on this keyboard\n"); return 1; }
     if (live) {
         int ev, er, cmaj, cmin;
         if (!XCompositeQueryExtension(dpy, &ev, &er) ||

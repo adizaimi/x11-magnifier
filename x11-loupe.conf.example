@@ -1,0 +1,23 @@
+# ~/.config/x11-loupe/config -- copy this file there and edit.
+# Lines are "key = value"; '#' starts a comment. Command-line flags override it.
+
+# Modifiers held with two-finger scroll: ctrl, shift, alt, super joined by '+'.
+modifiers = ctrl+shift
+
+# Key that leaves the zoomed view (an X keysym name: Escape, q, F12, ...).
+exit_key = Escape
+
+# Zoom factor per scroll tick, and the maximum zoom.
+step = 1.08
+max_zoom = 12
+
+# Pixels from the screen edge where panning starts.
+edge_margin = 40
+
+# Live-refresh the zoomed view (Composite+Damage), at most every refresh_ms.
+live = on
+refresh_ms = 200
+
+# Crisp pixels instead of smooth scaling; flip scroll direction.
+nearest = off
+invert = off
