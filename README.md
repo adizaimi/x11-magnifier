@@ -1,0 +1,38 @@
+# screen-loupe
+
+Full-screen magnifier for X11. Ctrl+Shift + two-finger scroll.
+
+- **Scroll up** zooms in around the pointer (content under the pointer stays put).
+- **Push the pointer to a screen edge** to pan the view that way.
+- **Scroll down** zooms out; at 1.0x the overlay disappears (the daemon keeps waiting).
+- **Esc** or a **mouse click** also leaves the zoomed view.
+
+This is the static-snapshot version: the zoomed view is a screenshot taken when
+you start zooming, so it does not live-update as you type (planned next).
+
+## Install as a Debian package
+
+    sudo apt install build-essential debhelper libx11-dev libxrender-dev
+    dpkg-buildpackage -us -uc -b
+    sudo dpkg -i ../screen-loupe_*.deb
+
+## Build / run without packaging
+
+    sudo apt install build-essential libx11-dev libxrender-dev
+    make && make install          # installs to /usr/local/bin (PREFIX=$HOME/.local for a user install)
+    screen-loupe &                       # e.g. from ~/.icewm/startup
+
+No xbindkeys or icewm key config is needed: screen-loupe grabs the scroll buttons itself
+(icewm's `keys` file can't bind mouse buttons anyway).
+
+## Options
+
+    -m MODS   ctrl+shift (default), super, ctrl+alt, ...
+    -s STEP   zoom factor per scroll tick (default 1.08)
+    -M MAX    max zoom (default 12)
+    -e PX     edge-pan margin (default 40)
+    -n        nearest-neighbour scaling instead of bilinear
+    -i        invert direction (natural scrolling)
+
+While running, the chosen modifier+scroll is swallowed system-wide, so
+Ctrl+Shift+scroll won't reach other apps. Plain and Ctrl-only scroll are unaffected.

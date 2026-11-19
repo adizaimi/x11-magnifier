@@ -1,0 +1,34 @@
+.TH SCREEN-LOUPE 1 "2026-11-19" "screen-loupe" "User Commands"
+.SH NAME
+screen-loupe \- full-screen magnifier for X11
+.SH SYNOPSIS
+.B screen-loupe
+[\fB\-m\fR \fIMODS\fR] [\fB\-s\fR \fISTEP\fR] [\fB\-M\fR \fIMAX\fR] [\fB\-e\fR \fIPX\fR] [\fB\-n\fR] [\fB\-i\fR]
+.SH DESCRIPTION
+Runs in the background and grabs modifier+scroll on the X root window.
+Scrolling up zooms the whole screen in around the pointer; pushing the pointer
+against a screen edge pans the view; scrolling down zooms out and, at 1.0x,
+removes the magnified view. Esc or a mouse click also leaves the zoomed view.
+The view is a snapshot taken when zooming starts and does not live-update.
+.SH OPTIONS
+.TP
+.BI \-m " MODS"
+Modifiers joined by +: ctrl, shift, alt, super. Default ctrl+shift.
+.TP
+.BI \-s " STEP"
+Zoom factor per scroll tick. Default 1.08.
+.TP
+.BI \-M " MAX"
+Maximum zoom. Default 12.
+.TP
+.BI \-e " PX"
+Edge-pan margin in pixels. Default 40.
+.TP
+.B \-n
+Nearest-neighbour scaling instead of bilinear.
+.TP
+.B \-i
+Invert scroll direction (natural scrolling).
+.SH NOTES
+The chosen modifier+scroll combination is grabbed system-wide while the
+program runs. If another client already holds it, screen-loupe exits with an error.

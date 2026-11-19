@@ -1,0 +1,5 @@
+screen-loupe (0.1.0) unstable; urgency=medium
+
+  * Initial release: static zoom via Ctrl+Shift+scroll, edge panning.
+
+ -- Adi Zaimi <adizaimi@yahoo.com>  Thu, 19 Nov 2026 15:27:31 -0500
