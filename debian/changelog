@@ -3,7 +3,7 @@ x11-magnifier (0.3.0) unstable; urgency=medium
   * Initial release: static zoom via Ctrl+Shift+scroll, edge panning.
   * Live refresh of the zoomed view (Composite+Damage); -p static, -r rate.
   * Config file, -k/-c flags, configurable exit key.
-  * Renamed from x11-loupe to x11-magnifier.
+  * Dual-licensed MIT or Apache-2.0.
   * Warn if the exit key is grabbed by another client.
 
  -- Adi Zaimi <adizaimi@yahoo.com>  Thu, 19 Nov 2026 15:27:31 -0500

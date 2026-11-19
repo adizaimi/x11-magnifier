@@ -50,3 +50,12 @@ Keys: `modifiers`, `exit_key`, `step`, `max_zoom`, `edge_margin`, `refresh_ms`,
 
 While running, the chosen modifier+scroll is swallowed system-wide, so
 Ctrl+Shift+scroll won't reach other apps. Plain and Ctrl-only scroll are unaffected.
+
+## License
+
+Licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+- MIT license ([LICENSE-MIT](LICENSE-MIT))
+
+at your option.

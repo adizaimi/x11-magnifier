@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT OR Apache-2.0 */
 /*
  * x11-magnifier - full-screen magnifier for X11, driven by Ctrl+Shift+two-finger scroll.
  *

@@ -3,7 +3,9 @@ Upstream-Name: x11-magnifier
 
 Files: *
 Copyright: 2026 Adi Zaimi
-License: Expat
+License: MIT or Apache-2.0
+
+License: MIT
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
  in the Software without restriction, including without limitation the rights
@@ -21,3 +23,7 @@ License: Expat
  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
+
+License: Apache-2.0
+ On Debian systems, the full text of the Apache License version 2.0 can be
+ found in the file /usr/share/common-licenses/Apache-2.0.

@@ -9,8 +9,6 @@ Rules-Requires-Root: no
 Package: x11-magnifier
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Conflicts: x11-loupe, screen-loupe
-Replaces: x11-loupe, screen-loupe
 Description: full-screen magnifier for X11 driven by Ctrl+Shift+scroll
  Zooms the whole screen around the pointer with modifier plus two-finger
  scroll, pans when the pointer reaches a screen edge, and goes away when
