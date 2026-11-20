@@ -1,12 +1,19 @@
 # x11-magnifier
 
-Full-screen magnifier for X11. Ctrl+Shift + two-finger scroll.
+A simple full-screen magnifier for X11 activated by Ctrl+Shift + two-finger scroll.
+Similar in behavior to MacOS Ctrl+scroll. Unlike other X11 magnifiers, which open a
+small lens window, this one magnifies the entire visible screen and shows live
+updates:
 
 - **Scroll up** zooms in around the pointer (content under the pointer stays put).
 - **Push the pointer to a screen edge** to pan the view that way.
 - **Scroll down** zooms out; at 1.0x the overlay disappears (the daemon keeps waiting).
 - A **mouse click** also leaves the zoomed view (there is deliberately no keyboard
   exit, so every key still reaches the app you are typing in).
+
+The zoomed view is view-only: clicks do not reach the windows underneath. It is
+X11 only (it will not work on Wayland) and treats the whole X screen as one image,
+so multi-monitor setups may behave oddly.
 
 The zoomed view is live: windows are redirected with the Composite extension and
 repainted over the initial snapshot when XDamage reports changes (at most every
@@ -26,10 +33,11 @@ instead. GL/video windows may not update.
 
     sudo apt install build-essential libx11-dev libxrender-dev libxcomposite-dev libxdamage-dev
     make && make install          # installs to /usr/local/bin (PREFIX=$HOME/.local for a user install)
-    x11-magnifier &                       # e.g. from ~/.icewm/startup
+    x11-magnifier &               # e.g. from ~/.icewm/startup
 
-No xbindkeys or icewm key config is needed: x11-magnifier grabs the scroll buttons itself
-(icewm's `keys` file can't bind mouse buttons anyway).
+No xbindkeys or window manager key config is needed: x11-magnifier grabs the
+modifier+scroll combination itself. Start it from `~/.xsession`, or from your
+window manager's autostart (for icewm, `~/.icewm/startup`).
 
 ## Configuration
 
@@ -37,6 +45,7 @@ Everything below can also live in `~/.config/x11-magnifier/config` (`key = value
 see `x11-magnifier.conf.example`, installed under `/usr/share/doc/x11-magnifier/examples/`).
 Keys: `modifiers`, `workspace_switch`, `step`, `max_zoom`, `edge_margin`, `refresh_ms`,
 `live`, `nearest`, `invert`. Flags override the file; `-c FILE` picks another file.
+`-p` is the same as `live = off`.
 
 ## Options
 
@@ -51,14 +60,13 @@ Keys: `modifiers`, `workspace_switch`, `step`, `max_zoom`, `edge_margin`, `refre
     -n        nearest-neighbour scaling instead of bilinear
     -i        invert direction (natural scrolling)
 
-While running, the chosen modifier+scroll is swallowed system-wide, so
-Ctrl+Shift+scroll won't reach other apps. Plain and Ctrl-only scroll are unaffected.
+While running, the chosen modifier+scroll is swallowed system-wide, so with the
+default modifiers Ctrl+Shift+scroll won't reach other apps (plain and Ctrl-only
+scroll are unaffected).
 
 ## License
 
-Licensed under either of
+Licensed at your option under either of:
 
 - Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
 - MIT license ([LICENSE-MIT](LICENSE-MIT))
-
-at your option.
